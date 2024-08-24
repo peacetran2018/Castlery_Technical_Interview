@@ -1,0 +1,83 @@
+class CommissionCalculator {
+    
+    // Constructor to initialize
+    constructor() {
+        salesOrders = [] // List of all Sales Orders
+        creditMemos = [] // List of all Credit Memos
+        commissionRate = 0.12 // 12% commission rate
+        commissionData = {} // Object to store commission details per Trade Partner
+    }
+
+    // Method to calculate commission for a given payment cycle
+    calculateCommission(startDate, endDate) {
+        // Convert startDate and endDate to Date objects for comparison
+        start = ConvertToDate(startDate)
+        end = ConvertToDate(endDate)
+
+        // Loop through each sales order
+        FOR EACH order IN salesOrders DO
+            orderDate = ConvertToDate(order.order_placed_date)
+
+            IF orderDate >= start AND orderDate <= end THEN
+                tradePartner = order.trade_partner
+
+                // Check if the order has a Trade Partner
+                IF tradePartner IS NOT NULL THEN
+                    // Initialize commission for the Trade Partner if not already done
+                    IF tradePartner NOT IN commissionData THEN
+                        commissionData[tradePartner] = 0
+                    END IF
+
+                    // Loop through each item in the order's item list
+                    FOR EACH item IN order.item_sublist DO
+                        IF item.item_type == "physical" THEN
+                            commissionAmount = item.total_amount * commissionRate
+
+                            // Loop through each fulfillment of the order
+                            FOR EACH fulfillment IN order.fulfillments DO
+                                fulfillmentDate = ConvertToDate(fulfillment.fulfillment_date)
+
+                                // Check if the fulfillment date is valid and more than 30 days ago
+                                IF fulfillmentDate IS NOT NULL AND fulfillmentDate <= (end - 30 days) THEN
+                                    // Add commission amount to the Trade Partner's commission
+                                    commissionData[tradePartner] += commissionAmount
+                                END IF
+                            END FOR
+                        END IF
+                    END FOR
+                END IF
+            END IF
+        END FOR
+
+        // Deduct refunds from the commission
+        FOR EACH creditMemo IN creditMemos DO
+            creditMemoDate = ConvertToDate(creditMemo.date)
+
+            IF creditMemoDate >= start AND creditMemoDate <= end THEN
+                tradePartner = creditMemo.trade_partner
+
+                // Check if the Credit Memo has a Trade Partner
+                IF tradePartner IS NOT NULL THEN
+                    // Loop through each item in the credit memo's item list
+                    FOR EACH item IN creditMemo.item_sublist DO
+                        IF item.item_type == "physical" THEN
+                            refundAmount = item.total_amount * commissionRate
+
+                            // Deduct refund amount from the Trade Partner's commission
+                            commissionData[tradePartner] -= refundAmount
+                        END IF
+                    END FOR
+                END IF
+            END IF
+        END FOR
+
+        // Return the final commission data
+        RETURN commissionData
+    }
+}
+
+// Example usage
+commissionCalculator = new CommissionCalculator()
+// Populate salesOrders and creditMemos with data before calling the method
+result = commissionCalculator.calculateCommission("2024-01-01", "2024-03-31")
+Print(result)
